@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Grimoire of the Dead — Осада</title>
+    <!-- Официальный скрипт Telegram WebApp -->
+    <script src="https://telegram.org"></script>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+        body {
+            background-color: #070708;
+            background-image: radial-gradient(circle at center, #141216 0%, #070708 100%);
+            color: #a3a3a3;
+            font-family: 'Cinzel', 'Georgia', serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 20px; overflow-x: hidden;
+        }
+        .header { text-align: center; margin-bottom: 15px; border-bottom: 1px solid #3a1a1a; padding-bottom: 10px; width: 100%; max-width: 400px; }
+        h1 { color: #8b0000; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 8px rgba(139, 0, 0, 0.6); }
+        
+        .tabs { display: flex; width: 100%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
+        .tab-btn {
+            flex: 1; background: #0d0c0f; border: 1px solid #241f21; color: #6e6e73;
+            padding: 10px; font-family: inherit; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 12px;
+        }
+        .tab-btn.active { border-color: #8b0000; color: #da2c2c; background: #140d0d; box-shadow: 0 0 8px rgba(139, 0, 0, 0.3); }
+
+        .screen { display: none; width: 100%; max-width: 400px; flex-direction: column; align-items: center; }
+        .screen.active { display: flex; }
+
+        .stats-container {
+            background: #0f0e12; border: 2px solid #2a2421; border-radius: 4px; padding: 15px;
+            text-align: center; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.7); margin-bottom: 25px;
+        }
+        .blood-counter { font-size: 26px; font-weight: bold; color: #da2c2c; text-shadow: 0 0 10px rgba(218, 44, 44, 0.4); margin-bottom: 3px; }
+        .cps-counter { font-size: 11px; color: #6e6e73; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .altar-wrapper { position: relative; margin-bottom: 25px; }
+        .altar-area {
+            width: 180px; height: 180px; background: radial-gradient(circle, #1c1414 0%, #0a0808 100%);
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 0 30px rgba(139, 0, 0, 0.2); cursor: pointer;
+            transition: transform 0.05s ease; border: 3px solid #2d1a1a; -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .altar-area:active { transform: scale(0.95); border-color: #5c1e1e; }
+        .altar-icon { font-size: 60px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.8)); pointer-events: none; }
+        
+        .ritual-container { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+        .ritual-item { background: #0d0c0f; border: 1px solid #241f21; border-left: 4px solid #4a1515; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .ritual-item.disabled { opacity: 0.3; }
+        .ritual-info h3 { font-size: 14px; color: #d1cbd1; margin-bottom: 3px; }
+        .ritual-info p { font-size: 11px; color: #5c5c64; }
+        .cast-btn {
+            background: linear-gradient(180deg, #1f1414 0%, #120a0a 100%); color: #b8a2a2;
+            border: 1px solid #422626; padding: 8px 14px; font-family: inherit; font-size: 11px;
+            font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .cast-btn:disabled { color: #4a4a4f; border-color: #1c1818; background: #0a090b; }
+        
+        .boss-container { text-align: center; margin: 20px 0; width: 100%; }
+        .boss-name { color: #f0f6fc; font-size: 18px; margin-bottom: 10px; letter-spacing: 1px; }
+        .hp-bar-bg { width: 100%; height: 20px; background: #1f1414; border: 1px solid #422626; border-radius: 3px; overflow: hidden; margin-bottom: 25px; }
+        .hp-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #8b0000 0%, #da2c2c 100%); transition: width 0.1s ease; }
+        
+        .floating-essence {
+            position: absolute; color: #da2c2c; font-weight: bold; font-size: 24px;
+            pointer-events: none; left: 50%; top: 20%; transform: translateX(-50%);
+            animation: riseAndFade 0.6s ease-out forwards; text-shadow: 0 0 6px rgba(0,0,0,0.9); z-index: 100;
+        }
+        @keyframes riseAndFade {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50px) scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Grimoire of the Dead</h1>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-altar" onclick="switchTab('altar')">🍷 Алтарь</button>
+        <button class="tab-btn" id="tab-raid" onclick="switchTab('raid')">⚔️ Осада</button>
+    </div>
+
+    <!-- ЭКРАН 1 -->
+    <div class="screen active" id="screen-altar">
+        <div class="stats-container">
+            <div class="blood-counter" id="blood-display">0 Крови</div>
+            <div class="cps-counter" id="cps-display">Жатва душ: 0 / сек</div>
+        </div>
+        <div class="altar-wrapper" id="altar-wrapper">
+            <div class="altar-area" onclick="doClick(event)">
+                <div class="altar-icon">🍷</div>
+            </div>
+        </div>
+        <div class="ritual-container">
+            <div class="ritual-item">
+                <div class="ritual-info">
+                    <h3 id="click-name">Оскверненное касание (Ранг 1)</h3>
+                    <p id="click-desc">Ритуал дает +1 Крови</p>
+                </div>
+                <button class="cast-btn" id="btn-click" onclick="buyClickUpgrade()">Ц: 10</button>
+            </div>
+            <div class="ritual-item">
+                <div class="ritual-info">
+                    <h3>Восставший Гуль</h3>
+                    <p>+1 Крови/сек | Воскрешено: <span id="count-ghoul">0</span></p>
+                </div>
+                <button class="cast-btn" id="btn-ghoul" onclick="buyMinion('ghoul')">Ц: 15</button>
+            </div>
+            <div class="ritual-item">
+                <div class="ritual-info">
+                    <h3>Проклятый Призрак</h3>
+                    <p>+5 Крови/сек | Воскрешено: <span id="count-wraith">0</span></p>
+                </div>
+                <button class="cast-btn" id="btn-wraith" onclick="buyMinion('wraith')">Ц: 100</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2 -->
+    <div class="screen" id="screen-raid">
+        <div class="stats-container">
+            <div class="blood-counter" id="raid-blood-display">0 Крови</div>
+            <p style="font-size: 11px; color: #6e6e73;">Сила атаки вашей армии: <span id="army-power-display">0</span> / сек</p>
+        </div>
+        <div class="boss-container">
+            <div class="boss-name" id="boss-title">🛡️ Святой Паладин (Ур. 1)</div>
+            <div class="hp-bar-bg">
+                <div class="hp-bar-fill" id="hp-bar"></div>
+            </div>
+            <p style="margin-bottom: 20px; font-size: 13px;" id="hp-text">HP: 100 / 100</p>
+        </div>
+        <div class="altar-wrapper" id="raid-wrapper">
+            <div class="altar-area" style="background: radial-gradient(circle, #2d1a1a 0%, #0d0909 100%); border-color: #4a1515;" onclick="doRaidClick(event)">
+                <div class="altar-icon">⚔️</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = null;
+        if (window.Telegram && window.Telegram.WebApp) {
+            tg = window.Telegram.WebApp;
+            tg.expand();
+        }
+
+        // Стандартные настройки игры
+        let game = {
+            blood: 0, touchPower: 1, upgradeCost: 10, rank: 1,
+            minions: { ghoul: { count: 0, cps: 1, cost: 15 }, wraith: { count: 0, cps: 5, cost: 100 } },
+            boss: { lvl: 1, hp: 100, maxHp: 100 }
+        };
+
+        // ФУНКЦИЯ ЗАГРУЗКИ: Проверяем, есть ли сохранение в памяти телефона
+        function loadGame() {
+            const saved = localStorage.getItem('grimoire_save_v1');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Переносим данные, проверяя структуру
+                    if(parsed.blood !== undefined) game.blood = parsed.blood;
+                    if(parsed.touchPower !== undefined) game.touchPower = parsed.touchPower;
+                    if(parsed.upgradeCost !== undefined) game.upgradeCost = parsed.upgradeCost;
+                    if(parsed.rank !== undefined) game.rank = parsed.rank;
+                    if(parsed.minions) {
+                        if(parsed.minions.ghoul) game.minions.ghoul = parsed.minions.ghoul;
+                        if(parsed.minions.wraith) game.minions.wraith = parsed.minions.wraith;
+                    }
+                    if(parsed.boss) game.boss = parsed.boss;
+                } catch(e) { console.log("Ошибка загрузки"); }
+            }
+        }
+
+        // ФУНКЦИЯ СОХРАНЕНИЯ: Запись прогресса в память
+        function saveGame() {
+            localStorage.setItem('grimoire_save_v1', JSON.stringify(game));
+        }
+
+        const altarWrapper = document.getElementById('altar-wrapper');
+        const raidWrapper = document.getElementById('raid-wrapper');
+
+        function triggerVibration() {
+            // Включаем вибрацию, если WebApp открыт в официальном приложении Telegram
+            if (tg && tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
